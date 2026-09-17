@@ -45,11 +45,18 @@
     <div class="step" id="step2">
       <h2><span class="n">2</span> Certificate details</h2>
 
-      <label class="field">
+      <div class="field">
         <span>Certificate title</span>
-        <input id="certTitle" class="linetext" type="text" list="titlePresets" placeholder="Certificate of Participation">
-        <datalist id="titlePresets"></datalist>
-      </label>
+        <div class="combo">
+          <input id="certTitle" class="linetext" type="text" placeholder="Certificate of Participation"
+                 autocomplete="off" role="combobox" aria-expanded="false"
+                 aria-controls="certTitleList" aria-autocomplete="list">
+          <button id="certTitleArrow" class="comboarrow" type="button" tabindex="-1"
+                  aria-label="Show the usual certificate titles">&#9662;</button>
+          <ul id="certTitleList" class="combolist" role="listbox" hidden></ul>
+        </div>
+        <p class="hint">Pick one of the usual titles, or type your own.</p>
+      </div>
 
       <label class="field">
         <span>Event / training title</span>

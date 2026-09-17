@@ -608,6 +608,80 @@
   }
 
   // ---------- wiring ----------
+  // Type-or-pick box. The arrow always opens the FULL list, whatever is already
+  // in the input - a <datalist> filters against the current value, so once the
+  // box said "Certificate of Participation" its list showed that one entry and
+  // looked broken until you deleted the text.
+  // Picking an option just writes the value and fires 'input', so the normal
+  // field handler does the saving and the follow-on wording change.
+  function setupCombo(input, arrow, list, options) {
+    var active = -1;
+
+    function paint() {
+      Array.prototype.forEach.call(list.children, function (li, i) {
+        li.classList.toggle('active', i === active);
+      });
+      if (active >= 0 && list.children[active]) {
+        list.children[active].scrollIntoView({ block: 'nearest' });
+      }
+    }
+    function open() {
+      list.innerHTML = '';
+      options.forEach(function (opt) {
+        var li = document.createElement('li');
+        li.textContent = opt;
+        li.setAttribute('role', 'option');
+        if (opt === input.value) li.setAttribute('aria-selected', 'true');
+        // mousedown, not click: the input must not blur-and-close first
+        li.addEventListener('mousedown', function (ev) { ev.preventDefault(); pick(opt); });
+        list.appendChild(li);
+      });
+      list.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      active = options.indexOf(input.value);
+      paint();
+    }
+    function close() {
+      list.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
+      active = -1;
+    }
+    function pick(value) {
+      input.value = value;
+      close();
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+    }
+
+    arrow.addEventListener('click', function () {
+      if (list.hidden) { open(); input.focus(); } else close();
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (list.hidden) open();
+        else { active = Math.min(active + 1, options.length - 1); paint(); }
+      } else if (e.key === 'ArrowUp') {
+        if (list.hidden) return;
+        e.preventDefault();
+        active = Math.max(active - 1, 0);
+        paint();
+      } else if (e.key === 'Enter') {
+        if (list.hidden || active < 0) return;
+        e.preventDefault();
+        pick(options[active]);
+      } else if (e.key === 'Escape') {
+        if (list.hidden) return;
+        e.preventDefault();
+        close();
+      }
+    });
+    input.addEventListener('blur', function () { setTimeout(close, 120); });
+    document.addEventListener('click', function (e) {
+      if (!list.hidden && e.target !== input && e.target !== arrow && !list.contains(e.target)) close();
+    });
+  }
+
   function bindSegment(wrapId, attr, apply) {
     $(wrapId).addEventListener('click', function (ev) {
       var b = ev.target.closest('.seg');
@@ -623,12 +697,7 @@
     loadSettings();
     loadBatch();
 
-    var dl = $('titlePresets');
-    core.TITLE_PRESETS.forEach(function (t) {
-      var o = document.createElement('option');
-      o.value = t;
-      dl.appendChild(o);
-    });
+    setupCombo($('certTitle'), $('certTitleArrow'), $('certTitleList'), core.TITLE_PRESETS);
 
     // --- step 1: the list
     $('btnBrowse').onclick = function () { $('fileInput').click(); };

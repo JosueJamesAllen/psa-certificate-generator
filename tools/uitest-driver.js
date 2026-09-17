@@ -73,6 +73,21 @@
     set('dateTo', '2026-09-17');
     set('location', 'PSA PSO Marinduque Training Room,\n2nd Floor, JRT 2 Building, Tampus, Boac, Marinduque');
     set('givenDate', '2026-09-17');
+    // The title dropdown must show every preset even though the box already
+    // holds a full title - the old <datalist> filtered itself down to one.
+    var tIn = document.getElementById('certTitle');
+    var tList = document.getElementById('certTitleList');
+    say('title box holds: ' + JSON.stringify(tIn.value));
+    document.getElementById('certTitleArrow').click();
+    say('dropdown open: ' + !tList.hidden + ', options offered: ' + tList.children.length);
+    say('options: ' + Array.prototype.map.call(tList.children, function (li) {
+      return li.textContent.replace('Certificate of ', '');
+    }).join('/'));
+    tList.children[3].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    say('after picking 4th: ' + JSON.stringify(tIn.value)
+      + ' | closed: ' + tList.hidden
+      + ' | forLine: ' + document.getElementById('forLine').value);
+
     say('detail line: ' + document.getElementById('detailPreview').textContent);
     say('given line: ' + document.getElementById('givenPreview').textContent);
     say('sheet hint (A4): ' + document.getElementById('sheetHint').textContent);
