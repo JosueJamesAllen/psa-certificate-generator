@@ -40,8 +40,18 @@ Three ways, use whichever suits:
 The list appears below. Untick anyone who shouldn't get one. A ⚠ means a blank
 name or a name that appears twice — worth a look before you print.
 
+**Click any name or role to correct it** — a typo caught here is a certificate
+you don't reprint. **A → Z** prints them in alphabetical order, and **Clear
+list** takes everyone off and starts again. People you typed in by hand are
+still there tomorrow; the app remembers them on this computer.
+
 **The Excel only needs one column: `Full Name`.** There's an optional second
 column, `Role`, explained further down.
+
+It copes with the sheets people actually send: a title across the top before the
+headings is skipped (it says so under the file name), and a plain list of names
+with no headings at all works too. If it picks the wrong column, change it in
+the little table under the file name.
 
 ### 2. Certificate details
 

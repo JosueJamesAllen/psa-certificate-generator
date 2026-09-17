@@ -38,7 +38,15 @@ Started September 2026 from a scan of the office's existing Canva certificate
   (with live previews of the composed "for 24 hours…" and "Given this 17th…"
   lines, and eye toggles that hide optional lines), then size/design (size,
   orientation, paper, corner design, colours, lettering, up to three logos).
-  Auto-regenerates the preview 450 ms after any change.
+  Auto-regenerates the preview 450 ms after any change. A change that lands
+  while a batch is still building is remembered (`regenPending`) and re-run when
+  that finishes — 200 certificates in Trajan take ~2 s, comfortably longer than
+  the debounce, and such changes used to be dropped, leaving a stale preview.
+  Errors also surface as a **toast** at the top of the window, because the
+  status line sits at the bottom of step 3, scrolled out of sight while you work
+  in step 1. An open `<dialog>` is in the browser's top layer and would paint
+  over a toast attached to `<body>`, so `showToast` appends it to the open
+  dialog instead.
 - `core.js` — **the engine**. UMD: `PSACert` in the browser, `require`-able in
   Node (that's how the headless tests work). Holds `LAYOUT`, `DEFAULT_BATCH`,
   `DEFAULT_SETTINGS`, `TITLE_PRESETS`/`FOR_LINES`, `autoMap`, `sheetPlan`,
@@ -52,14 +60,32 @@ Started September 2026 from a scan of the office's existing Canva certificate
   `xlsx.full.min.js` (SheetJS 0.20.3), `pdf-lib.min.js` (1.17.1),
   `fontkit.umd.min.js`, `cinzel-font.js` / `cinzel-bold-font.js`
   (→ `PSA_FONT_CINZEL` / `PSA_FONT_CINZEL_BOLD`), `Cinzel-OFL.txt`.
+  **None of these are in `index.html`.** They were, and the 2.8 MB had to
+  download and parse before `app.js` ran, so the form was dead until all of it
+  landed. `app.js` now injects them as script tags when they are wanted
+  (`loadScript` / `ensureXlsx` / `ensurePdfLib` / `ensureTrajan`): the page
+  itself is ~370 KB, pdf-lib and SheetJS start loading the moment the form is up
+  (`warmUp`, so they are in hand before anyone needs them), and fontkit + the
+  two Cinzel files — 964 KB for a style most batches never use — only load if
+  Trajan is actually chosen. **Injected script tags, not `fetch()`**: on
+  `file://` fetch and XHR are blocked for local files, script tags are not.
+  `tools/build-dist.js` copies `lib/` by name, so dynamic loading does not
+  change what gets deployed.
 - **Fonts.** The default "Classic serif" lettering is pdf-lib's built-in
   **Times** family — no embedding, and it matches the office's original.
   "Trajan style" swaps the title, the recipient name and the signatory names to
   **Cinzel** (open SIL-OFL Trajan look-alike), which needs fontkit:
   `doc.registerFontkit(opts.fontkit)` then
-  `doc.embedFont(opts.displayFontBytes, { subset: true })`. `app.js` only loads
-  the Cinzel bytes when that style is selected. Without them the engine falls
-  back to Times bold rather than failing.
+  `doc.embedFont(opts.displayFontBytes, { subset: true })`. `app.js` fetches the
+  Cinzel files only when that style is selected, and waits for them before
+  building the PDF. Without them the engine falls back to Times bold rather than
+  failing — which is also what happens if the fetch fails, so fonts that will
+  not load cost the lettering, not the batch.
+  Checking whether a PDF really embedded them by searching the bytes for
+  "Cinzel" does **not** work: pdf-lib writes object streams, so the font names
+  sit inside compressed data — a classic-serif PDF contains no "Times" either.
+  The subset shows up plainly in the file size instead (~5 KB), which is how
+  `tools/uitest-driver.js` checks it.
 
 ### The layout engine (the part worth understanding)
 
@@ -117,8 +143,23 @@ Uploads are shrunk to 700 px before storing, which keeps them well inside the
 than a silent loss. Bundled logos cannot be deleted from the library.
 
 Also persisted: `settings` and the certificate `batch` in localStorage, column
-mappings keyed by header row. All per-browser, per-machine — Backup/Restore
-(JSON, `version: 1`) is how it travels.
+mappings keyed by header row, and the hand-typed people (`psa-cert-people`).
+All per-browser, per-machine — Backup/Restore (JSON, `version: 1`) is how it
+travels.
+
+**The people are deliberately not in the backup.** A backup carries your setup —
+signatories, logos, wording — and restoring one on another machine should not
+drop someone else's roster into your list. They are persisted only so a reload
+does not cost you twenty retyped names.
+
+The roster edits in place (`editableCell`, `contentEditable = 'plaintext-only'`
+with a fallback for engines that reject that value). Whitespace is collapsed on
+the way into the model, because a pasted line break would wrap a name across two
+lines on the certificate. Warnings are re-flagged by `refreshWarnings`, which
+walks the existing rows rather than rebuilding the table — a rebuild mid-edit
+takes the caret with it. `batch.sortNames` (the A → Z button) is a batch
+property, not a view setting: `displayPeople` feeds both the table and
+`chosenPeople`, so what you see is the order the certificates print in.
 
 ## Verify loop (do this after any layout/engine change)
 
@@ -154,10 +195,30 @@ preview pane is blank in screenshots. That is not a bug.
 
 ## Excel contract
 
-Headers row 1: `Full Name | Role`. Only the name matters; `autoMap`
-fuzzy-matches and falls back to column 1 for the name if nothing matches, so a
-bare list of names works. The app has a "Download Excel template" button, and
-`node tools/make-sample.js` writes `sample-participants.xlsx`.
+Headers `Full Name | Role`. Only the name matters; `autoMap` fuzzy-matches and
+falls back to column 1 for the name if nothing matches.
+
+**The heading row is searched for, not assumed to be row 1** (`findHeaderRow`).
+Assuming row 1 quietly ate a person: a sheet opening with a merged title like
+"Certificate Participants List" had that title read as the headings — and since
+it contains "participants", `autoMap` matched it — so the real `Full Name`
+heading became the first certificate. A bare list with no headings lost its
+first name the same way; that case now returns `index: -1` with generic
+`Column N` labels and treats every row as a person. Only the first 5 rows are
+scanned, a heading cell must be ≤ 24 characters (a sentence is a title, not a
+heading), and ties go to the LAST row, because a title sits above the headings.
+
+**SheetJS never refuses a file.** Handed a PDF, a .docx or a photo it reads the
+bytes as delimited text and returns "rows", which used to become a roster of
+binary gibberish. Two gates: `loadFile` rejects by extension (the drop zone
+bypasses the input's `accept`), and `core.looksBinary` rejects rows carrying
+control characters for anything that gets past the name.
+
+The app has a "Download Excel template" button, and `node tools/make-sample.js`
+writes `sample-participants.xlsx`.
+
+`tools/uitest-driver.js` builds real .xlsx files in the page and drops them on
+the drop zone, so all of this is covered by the headless UI run.
 
 ## Open items / watch-outs
 

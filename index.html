@@ -36,17 +36,27 @@
         <button id="btnClearFile" class="ghost small" type="button">&#10005;</button>
       </div>
       <p class="hint">Just one or two people? <button id="btnAddPerson" class="ghost small" type="button">+ Add a person manually</button></p>
+      <p class="hint" id="sheetNote"></p>
       <table class="mapping" id="mappingTable" hidden></table>
+      <div class="rostertools" id="rosterTools" hidden>
+        <span class="badge" id="rosterCount"></span>
+        <span class="spacer"></span>
+        <button id="btnSortNames" class="ghost small" type="button" aria-pressed="false"
+                title="Print the certificates in alphabetical order">A &rarr; Z</button>
+        <button id="btnClearList" class="ghost small" type="button"
+                title="Take everyone off the list">Clear list</button>
+      </div>
       <div id="rosterWrap" hidden>
         <table class="roster" id="rosterTable"></table>
       </div>
+      <p class="hint" id="rosterHint" hidden>Click a name or role to fix it.</p>
     </div>
 
     <div class="step" id="step2">
       <h2><span class="n">2</span> Certificate details</h2>
 
       <div class="field">
-        <span>Certificate title</span>
+        <label class="caption" for="certTitle">Certificate title</label>
         <div class="combo">
           <input id="certTitle" class="linetext" type="text" placeholder="Certificate of Participation"
                  autocomplete="off" role="combobox" aria-expanded="false"
@@ -71,8 +81,10 @@
           </button>
         </div>
         <div class="tworow">
-          <input id="hours" class="linetext narrow" type="number" min="0" step="1" placeholder="24">
-          <input id="trainingType" class="linetext" type="text" placeholder="e.g. foundational training">
+          <input id="hours" class="linetext narrow" type="number" min="0" step="1" placeholder="24"
+                 aria-label="Number of hours">
+          <input id="trainingType" class="linetext" type="text" placeholder="e.g. foundational training"
+                 aria-label="Type of training">
         </div>
         <p class="hint" id="detailPreview"></p>
       </div>
@@ -87,7 +99,7 @@
 
       <div class="field">
         <div class="fieldhead">
-          <span>Venue / location</span>
+          <label class="caption" for="location">Venue / location</label>
           <button id="btnEyeLocation" class="eye" type="button" aria-pressed="true" title="Show or hide the venue line">
             <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
           </button>
@@ -98,12 +110,16 @@
 
       <div class="field">
         <div class="fieldhead">
-          <span>Date issued</span>
+          <label class="caption" for="givenDate">Date issued</label>
           <button id="btnEyeGiven" class="eye" type="button" aria-pressed="true" title="Show or hide the &quot;Given this&hellip;&quot; line">
             <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
           </button>
         </div>
-        <input id="givenDate" type="date">
+        <div class="tworow">
+          <input id="givenDate" type="date">
+          <button id="btnToday" class="ghost small" type="button"
+                  title="Use today&rsquo;s date">Today</button>
+        </div>
         <p class="hint" id="givenPreview"></p>
       </div>
 
@@ -113,7 +129,7 @@
         middle line follows the certificate title automatically.</p>
         <div class="field">
           <div class="fieldhead">
-            <span>Line above the title</span>
+            <label class="caption" for="preamble">Line above the title</label>
             <button id="btnEyePreamble" class="eye" type="button" aria-pressed="true">
               <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
             </button>
@@ -122,7 +138,7 @@
         </div>
         <div class="field">
           <div class="fieldhead">
-            <span>Line above the name</span>
+            <label class="caption" for="presentedTo">Line above the name</label>
             <button id="btnEyePresented" class="eye" type="button" aria-pressed="true">
               <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
             </button>
@@ -131,7 +147,7 @@
         </div>
         <div class="field">
           <div class="fieldhead">
-            <span>Line above the event</span>
+            <label class="caption" for="forLine">Line above the event</label>
             <button id="btnEyeForLine" class="eye" type="button" aria-pressed="true">
               <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
             </button>
@@ -148,7 +164,7 @@
 
       <div class="field">
         <div class="fieldhead"><span>Certificate size</span></div>
-        <div class="segmented" id="sizeMode">
+        <div class="segmented" id="sizeMode" role="group" aria-label="Certificate size">
           <button type="button" class="seg on" data-size="a4">A4</button>
           <button type="button" class="seg" data-size="half">Half of A4</button>
         </div>
@@ -156,7 +172,7 @@
 
       <div class="field">
         <div class="fieldhead"><span>Orientation</span></div>
-        <div class="segmented" id="orientMode">
+        <div class="segmented" id="orientMode" role="group" aria-label="Orientation">
           <button type="button" class="seg on" data-orient="portrait">Portrait</button>
           <button type="button" class="seg" data-orient="landscape">Landscape</button>
         </div>
@@ -164,7 +180,7 @@
 
       <div class="field" id="sheetField">
         <div class="fieldhead"><span>Paper to print on</span></div>
-        <div class="segmented" id="sheetMode">
+        <div class="segmented" id="sheetMode" role="group" aria-label="Paper to print on">
           <button type="button" class="seg on" data-sheet="actual">Its own size</button>
           <button type="button" class="seg" data-sheet="a4">2 per A4 sheet</button>
         </div>
@@ -173,7 +189,7 @@
 
       <div class="field">
         <div class="fieldhead"><span>Corner design</span></div>
-        <div class="segmented" id="frameMode">
+        <div class="segmented" id="frameMode" role="group" aria-label="Corner design">
           <button type="button" class="seg on" data-frame="corners">Corners</button>
           <button type="button" class="seg" data-frame="border">Border</button>
           <button type="button" class="seg" data-frame="none">Plain</button>
@@ -186,7 +202,7 @@
 
       <div class="field">
         <div class="fieldhead"><span>Lettering</span></div>
-        <div class="segmented" id="fontMode">
+        <div class="segmented" id="fontMode" role="group" aria-label="Lettering">
           <button type="button" class="seg on" data-font="classic">Classic serif</button>
           <button type="button" class="seg" data-font="trajan">Trajan style</button>
         </div>
@@ -202,17 +218,17 @@
         </div>
         <div class="logoslot" data-slot="0">
           <img class="logothumb" alt="" hidden>
-          <select></select>
+          <select aria-label="First logo"></select>
           <button class="ghost small dellogo" type="button" title="Delete this logo from the library">&#128465;</button>
         </div>
         <div class="logoslot" data-slot="1">
           <img class="logothumb" alt="" hidden>
-          <select></select>
+          <select aria-label="Second logo"></select>
           <button class="ghost small dellogo" type="button" title="Delete this logo from the library">&#128465;</button>
         </div>
         <div class="logoslot" data-slot="2">
           <img class="logothumb" alt="" hidden>
-          <select></select>
+          <select aria-label="Third logo"></select>
           <button class="ghost small dellogo" type="button" title="Delete this logo from the library">&#128465;</button>
         </div>
         <p class="hint">Logos live on this computer only &mdash; use <b>Settings &rarr; Backup</b> to carry them to another one.</p>
@@ -236,6 +252,8 @@
     <iframe id="previewFrame" title="PDF preview" hidden></iframe>
   </section>
 </main>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <dialog id="personDialog">
   <form method="dialog" id="personForm">
@@ -314,13 +332,12 @@
   </form>
 </dialog>
 
+<!-- Only what the form itself needs. The heavy libraries in lib/ are pulled in
+     by app.js as script tags when they are wanted: pdf-lib and SheetJS start
+     loading as soon as the page is usable, Cinzel and fontkit only if the
+     Trajan lettering is chosen. See "loading the big libraries" in app.js. -->
 <script src="assets.js"></script>
 <script src="core.js"></script>
-<script src="lib/xlsx.full.min.js"></script>
-<script src="lib/pdf-lib.min.js"></script>
-<script src="lib/fontkit.umd.min.js"></script>
-<script src="lib/cinzel-font.js"></script>
-<script src="lib/cinzel-bold-font.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

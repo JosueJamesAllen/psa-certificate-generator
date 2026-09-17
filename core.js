@@ -75,6 +75,7 @@
     nameColor: '#000000',
     fontStyle: 'classic',   // 'classic' (Times) | 'trajan' (Cinzel headings)
     logos: ['PSA Seal', '', ''],
+    sortNames: false,       // print A-Z rather than in the order the list came in
     preamble: 'This',
     certTitle: 'Certificate of Participation',
     presentedTo: 'is presented to',
@@ -135,6 +136,75 @@
     role: [/role|position|designation|capacity|remark/i, null],
     name: [/name|participant|attendee|employee/i, /role|position|event|venue/i],
   };
+
+  // Which row holds the column headings.
+  //
+  // Assuming row 1 quietly cost the office a person every time: a sheet that
+  // opens with a merged title ("Certificate Participants List") had that title
+  // read as the headings - and because it contains the word "participants",
+  // autoMap even matched it - so the real "Full Name" heading became the first
+  // certificate. A hand-typed list with no headings at all lost its first name
+  // the same way. So the heading row is found, not assumed.
+  var HEADER_WORDS = /name|participant|attendee|employee|role|position|designation|signator/i;
+
+  // A heading is a short label. A sentence across the top of the sheet is a
+  // title, however many heading-ish words it happens to contain.
+  function headerScore(row) {
+    var n = 0;
+    (row || []).forEach(function (cell) {
+      var s = String(cell == null ? '' : cell).trim();
+      if (!s || s.length > 24) return;
+      if (HEADER_WORDS.test(s)) n++;
+    });
+    return n;
+  }
+
+  // Returns { index, headers, hasHeader }. index is -1 when the sheet has no
+  // headings at all, in which case every row is a person and the columns get
+  // generic labels so the mapping table still works.
+  // Only the top of the sheet is searched, and on a tie the LAST row wins: a
+  // title sits above the headings, never below them.
+  function findHeaderRow(rows, limit) {
+    var max = Math.min((rows || []).length, limit || 5);
+    var best = -1, bestScore = 0;
+    for (var i = 0; i < max; i++) {
+      var s = headerScore(rows[i]);
+      if (s && s >= bestScore) { bestScore = s; best = i; }
+    }
+    if (best < 0) {
+      var width = 0;
+      (rows || []).forEach(function (r) { width = Math.max(width, (r || []).length); });
+      var generic = [];
+      for (var k = 0; k < width; k++) generic.push('Column ' + (k + 1));
+      return { index: -1, headers: generic, hasHeader: false };
+    }
+    return {
+      index: best,
+      headers: (rows[best] || []).map(function (h) { return String(h == null ? '' : h).trim(); }),
+      hasHeader: true,
+    };
+  }
+
+  // SheetJS never refuses a file. Handed a PDF, a Word document or a photo it
+  // falls back to reading the raw bytes as delimited text and hands back
+  // "rows", which used to fill the roster with binary gibberish and cheerfully
+  // print certificates for it. Control characters are the giveaway.
+  function looksBinary(rows) {
+    var ctrl = 0, chars = 0;
+    (rows || []).slice(0, 10).forEach(function (r) {
+      (r || []).forEach(function (cell) {
+        var s = String(cell == null ? '' : cell);
+        chars += s.length;
+        for (var i = 0; i < s.length; i++) {
+          var code = s.charCodeAt(i);
+          // tab, newline and carriage return are the only controls a real cell
+          // has any business holding; U+FFFD means bytes that decoded to junk.
+          if ((code < 32 && code !== 9 && code !== 10 && code !== 13) || code === 0xfffd) ctrl++;
+        }
+      });
+    });
+    return chars > 0 && ctrl / chars > 0.02;
+  }
 
   function autoMap(headers) {
     var map = {}, used = {};
@@ -375,12 +445,28 @@
           var floor = size * (spec.fitFloor || 0.70);
           while (size > floor && font.widthOfTextAtSize(String(text), size) > maxW) size -= 0.3;
         }
+        var lines = wrapText(text, font, size, maxW);
+        // Wrapping cannot break a single word that is wider than the column -
+        // a long hyphenless venue or event token used to run out from under the
+        // text column and across the corner artwork - so shrink until it fits.
+        // Each pass re-wraps, because a smaller size regroups the words; the
+        // floor keeps a pathological string from disappearing altogether.
+        var sizeFloor = size * 0.45;
+        for (var pass = 0; pass < 4 && size > sizeFloor; pass++) {
+          var widest = 0;
+          for (var li = 0; li < lines.length; li++) {
+            widest = Math.max(widest, font.widthOfTextAtSize(lines[li], size));
+          }
+          if (widest <= maxW) break;
+          size = Math.max(sizeFloor, size * (maxW / widest) * 0.98);
+          lines = wrapText(text, font, size, maxW);
+        }
         var o = Object.assign({
           kind: 'text', size: size, font: font, lead: spec.lead || 1.15,
           gap: spec.gap * U * scale, color: BLACK,
         }, extra || {});
         o.size = size;
-        o.lines = wrapText(text, font, size, maxW);
+        o.lines = lines;
         o.height = o.lines.length * size * o.lead;
         items.push(o);
       }
@@ -672,6 +758,8 @@
     DEFAULT_BATCH: DEFAULT_BATCH,
     DEFAULT_SETTINGS: DEFAULT_SETTINGS,
     autoMap: autoMap,
+    findHeaderRow: findHeaderRow,
+    looksBinary: looksBinary,
     dataUriToBytes: dataUriToBytes,
     formatDateRange: formatDateRange,
     hoursLine: hoursLine,
