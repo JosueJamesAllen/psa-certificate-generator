@@ -10,7 +10,19 @@ no internet needed.
 
 ## Opening it
 
-Double-click **`index.html`**. It opens in Edge (or Chrome) and that's it.
+Two ways, both the same app:
+
+- **On this computer** — double-click **`index.html`**. It opens in Edge (or
+  Chrome) and that's it. Works with no internet at all.
+- **Online** — <https://psa-certificate-generator.netlify.app>. Handy on a
+  machine that doesn't have the folder, or on a phone or tablet.
+
+Whichever you use, the names you type and the PDFs you make stay on that device.
+Nothing is uploaded.
+
+> Your settings and logos are remembered **per device and per browser**. Set
+> them up at your desk and the online version on another machine starts fresh —
+> use **Backup** and **Restore** (below) to carry them across.
 
 ---
 

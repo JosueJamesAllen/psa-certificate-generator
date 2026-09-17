@@ -171,5 +171,27 @@ bare list of names works. The app has a "Download Excel template" button, and
 - Advise printing at **Actual size / 100%** — "fit to page" shrinks it.
 - No real-world print test has been done yet (as of 16 September 2026),
   including the A5 2-up cut.
-- `netlify.toml` + `tools/build-dist.js` are there if the user ever wants it
-  hosted like the ID generator; nothing about the app requires it.
+## Deployment
+
+Live at <https://psa-certificate-generator.netlify.app> (Netlify site
+`psa-certificate-generator`, account `axellexious`), built from
+`JosueJamesAllen/psa-certificate-generator` on `main` via
+`node tools/build-dist.js` → `dist/`. Same shape as `psaidgenerator`.
+
+The site was created through the Netlify API rather than the web UI, which does
+**not** set up repo access on its own — the first build failed with
+"Host key verification failed". Fixing it took three extra steps, worth knowing
+if a site is ever recreated this way: create a deploy key
+(`POST /api/v1/deploy_keys`), add its `public_key` to the GitHub repo
+(`POST /repos/:owner/:repo/keys`, read-only), then PATCH the site's `repo`
+object with `deploy_key_id`. A push webhook to
+`https://api.netlify.com/hooks/github` also has to be added to the repo by hand
+(`POST /repos/:owner/:repo/hooks`, events `push`/`pull_request`/`delete`);
+without it nothing rebuilds on push. Both were done and auto-deploy is verified
+working.
+
+Deploying changes nothing about how the app works — it stays a static,
+offline-capable page, and `file://` is still the primary way the office runs it.
+Note that the localStorage/IndexedDB distinction above still matters: over https
+IndexedDB *would* work, but the app must keep working from `file://`, so the
+localStorage store stays.
