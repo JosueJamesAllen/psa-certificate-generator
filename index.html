@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSA Certificate Generator</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>PSA Certificate Generator</h1>
+    <span class="sub">Provincial Statistical Office &middot; Marinduque</span>
+  </div>
+  <div class="hbtns">
+    <button id="btnSettings" class="ghost" type="button">&#9881; Settings</button>
+  </div>
+</header>
+
+<main>
+  <section class="controls">
+
+    <div class="step" id="step1">
+      <h2><span class="n">1</span> Who gets a certificate</h2>
+      <div id="dropZone" class="dropzone">
+        <p><strong>Drop an Excel file here</strong> or</p>
+        <button id="btnBrowse" type="button">Choose file&hellip;</button>
+        <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" hidden>
+        <p class="hint">No file yet? <button id="btnTemplate" class="ghost small" type="button">&#11015; Download Excel template</button><br>
+        One row per person &mdash; a Full Name column is all it needs.</p>
+      </div>
+      <div id="fileInfo" class="fileinfo" hidden>
+        <span id="fileName"></span>
+        <select id="sheetSelect" hidden></select>
+        <span id="rowCount" class="badge"></span>
+        <button id="btnClearFile" class="ghost small" type="button">&#10005;</button>
+      </div>
+      <p class="hint">Just one or two people? <button id="btnAddPerson" class="ghost small" type="button">+ Add a person manually</button></p>
+      <table class="mapping" id="mappingTable" hidden></table>
+      <div id="rosterWrap" hidden>
+        <table class="roster" id="rosterTable"></table>
+      </div>
+    </div>
+
+    <div class="step" id="step2">
+      <h2><span class="n">2</span> Certificate details</h2>
+
+      <label class="field">
+        <span>Certificate title</span>
+        <input id="certTitle" class="linetext" type="text" list="titlePresets" placeholder="Certificate of Participation">
+        <datalist id="titlePresets"></datalist>
+      </label>
+
+      <label class="field">
+        <span>Event / training title</span>
+        <textarea id="event" class="linetext" rows="3" placeholder="e.g. Capacity Building on Statistical Survey Review and Clearance System"></textarea>
+      </label>
+
+      <div class="field">
+        <div class="fieldhead">
+          <span>Hours and type of training</span>
+          <button id="btnEyeDetail" class="eye" type="button" aria-pressed="true" title="Show or hide the hours and dates line">
+            <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
+          </button>
+        </div>
+        <div class="tworow">
+          <input id="hours" class="linetext narrow" type="number" min="0" step="1" placeholder="24">
+          <input id="trainingType" class="linetext" type="text" placeholder="e.g. foundational training">
+        </div>
+        <p class="hint" id="detailPreview"></p>
+      </div>
+
+      <div class="field">
+        <span>Held on</span>
+        <div class="tworow">
+          <label class="sublabel">From <input id="dateFrom" type="date"></label>
+          <label class="sublabel">To <input id="dateTo" type="date"></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="fieldhead">
+          <span>Venue / location</span>
+          <button id="btnEyeLocation" class="eye" type="button" aria-pressed="true" title="Show or hide the venue line">
+            <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
+          </button>
+        </div>
+        <textarea id="location" class="linetext" rows="2" placeholder="e.g. PSA PSO Marinduque Training Room,&#10;2nd Floor, JRT 2 Building, Tampus, Boac, Marinduque"></textarea>
+        <p class="hint">Printed as &ldquo;at &hellip;&rdquo;. Press Enter to force a line break.</p>
+      </div>
+
+      <div class="field">
+        <div class="fieldhead">
+          <span>Date issued</span>
+          <button id="btnEyeGiven" class="eye" type="button" aria-pressed="true" title="Show or hide the &quot;Given this&hellip;&quot; line">
+            <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
+          </button>
+        </div>
+        <input id="givenDate" type="date">
+        <p class="hint" id="givenPreview"></p>
+      </div>
+
+      <details class="wording">
+        <summary>Wording of the small lines</summary>
+        <p class="hint">Only change these if the certificate should read differently. The
+        middle line follows the certificate title automatically.</p>
+        <div class="field">
+          <div class="fieldhead">
+            <span>Line above the title</span>
+            <button id="btnEyePreamble" class="eye" type="button" aria-pressed="true">
+              <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
+            </button>
+          </div>
+          <input id="preamble" class="linetext" type="text" placeholder="This">
+        </div>
+        <div class="field">
+          <div class="fieldhead">
+            <span>Line above the name</span>
+            <button id="btnEyePresented" class="eye" type="button" aria-pressed="true">
+              <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
+            </button>
+          </div>
+          <input id="presentedTo" class="linetext" type="text" placeholder="is presented to">
+        </div>
+        <div class="field">
+          <div class="fieldhead">
+            <span>Line above the event</span>
+            <button id="btnEyeForLine" class="eye" type="button" aria-pressed="true">
+              <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
+            </button>
+          </div>
+          <input id="forLine" class="linetext" type="text" placeholder="for actively participating in the">
+          <p class="hint">A person with a <b>Role</b> in the list uses their own line instead &mdash;
+          so speakers and participants can come out of one batch.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="step" id="step3">
+      <h2><span class="n">3</span> Size and design</h2>
+
+      <div class="field">
+        <div class="fieldhead"><span>Certificate size</span></div>
+        <div class="segmented" id="sizeMode">
+          <button type="button" class="seg on" data-size="a4">A4</button>
+          <button type="button" class="seg" data-size="half">Half of A4</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="fieldhead"><span>Orientation</span></div>
+        <div class="segmented" id="orientMode">
+          <button type="button" class="seg on" data-orient="portrait">Portrait</button>
+          <button type="button" class="seg" data-orient="landscape">Landscape</button>
+        </div>
+      </div>
+
+      <div class="field" id="sheetField">
+        <div class="fieldhead"><span>Paper to print on</span></div>
+        <div class="segmented" id="sheetMode">
+          <button type="button" class="seg on" data-sheet="actual">Its own size</button>
+          <button type="button" class="seg" data-sheet="a4">2 per A4 sheet</button>
+        </div>
+        <p class="hint" id="sheetHint"></p>
+      </div>
+
+      <div class="field">
+        <div class="fieldhead"><span>Corner design</span></div>
+        <div class="segmented" id="frameMode">
+          <button type="button" class="seg on" data-frame="corners">Corners</button>
+          <button type="button" class="seg" data-frame="border">Border</button>
+          <button type="button" class="seg" data-frame="none">Plain</button>
+        </div>
+        <div class="tworow colors">
+          <label class="sublabel">Design colour <input id="accent" class="colorpick" type="color" value="#333a4a"></label>
+          <label class="sublabel">Name colour <input id="nameColor" class="colorpick" type="color" value="#000000"></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="fieldhead"><span>Lettering</span></div>
+        <div class="segmented" id="fontMode">
+          <button type="button" class="seg on" data-font="classic">Classic serif</button>
+          <button type="button" class="seg" data-font="trajan">Trajan style</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="fieldhead">
+          <span>Logos <small>&mdash; printed top-left, in this order</small></span>
+          <span>
+            <button id="btnAddLogo" class="ghost small" type="button" title="Add a logo image to the library">+ Add</button>
+            <input id="logoInput" type="file" accept="image/png,image/jpeg" hidden>
+          </span>
+        </div>
+        <div class="logoslot" data-slot="0">
+          <img class="logothumb" alt="" hidden>
+          <select></select>
+          <button class="ghost small dellogo" type="button" title="Delete this logo from the library">&#128465;</button>
+        </div>
+        <div class="logoslot" data-slot="1">
+          <img class="logothumb" alt="" hidden>
+          <select></select>
+          <button class="ghost small dellogo" type="button" title="Delete this logo from the library">&#128465;</button>
+        </div>
+        <div class="logoslot" data-slot="2">
+          <img class="logothumb" alt="" hidden>
+          <select></select>
+          <button class="ghost small dellogo" type="button" title="Delete this logo from the library">&#128465;</button>
+        </div>
+        <p class="hint">Logos live on this computer only &mdash; use <b>Settings &rarr; Backup</b> to carry them to another one.</p>
+      </div>
+
+      <div class="actions">
+        <button id="btnGenerate" type="button" disabled>Generate PDF</button>
+        <button id="btnDownload" type="button" disabled>&#11015; Download</button>
+        <button id="btnPrint" type="button" class="ghost" disabled>&#128424; Print</button>
+      </div>
+      <p id="status" class="hint"></p>
+      <p class="hint">When printing, set Scale to <b>Actual size</b> or <b>100%</b> &mdash; &ldquo;fit to page&rdquo; shrinks the certificate.</p>
+    </div>
+
+  </section>
+
+  <section class="preview">
+    <div id="previewEmpty" class="preview-empty">
+      <p>The print-ready preview appears here.<br>Add at least one name to get started.</p>
+    </div>
+    <iframe id="previewFrame" title="PDF preview" hidden></iframe>
+  </section>
+</main>
+
+<dialog id="personDialog">
+  <form method="dialog" id="personForm">
+    <h2>Add one person</h2>
+    <p class="hint">For a single certificate &mdash; no Excel file needed.</p>
+    <label>Full Name <input name="name" autocomplete="off"></label>
+    <label>Role <small>&mdash; optional, replaces the line above the event</small>
+      <input name="role" autocomplete="off" placeholder="e.g. as Resource Speaker in the">
+    </label>
+    <div class="actions">
+      <span class="spacer"></span>
+      <button type="button" id="btnPersonCancel" class="ghost">Cancel</button>
+      <button value="add" id="btnPersonAdd">Add to list</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="settingsDialog">
+  <form method="dialog" id="settingsForm">
+    <h2>Certificate settings</h2>
+    <p class="hint">These rarely change &mdash; update them when signatories change. Saved on this
+    computer &mdash; use <b>Backup</b> to carry them (and your logos) to another one.</p>
+    <div class="cols">
+      <fieldset>
+        <legend>Signatory 1</legend>
+        <label>Name <input name="sig1Name"></label>
+        <label>Title <input name="sig1Title"></label>
+        <label>Office <input name="sig1Office"></label>
+      </fieldset>
+      <fieldset>
+        <legend>Signatory 2</legend>
+        <label class="rowlabel">
+          <button type="button" id="btnSig2Enable" class="toggle off small" aria-pressed="false">Off</button>
+          <span>Print a second signatory beside the first</span>
+        </label>
+        <label>Name <input name="sig2Name"></label>
+        <label>Title <input name="sig2Title"></label>
+        <label>Office <input name="sig2Office"></label>
+      </fieldset>
+      <fieldset>
+        <legend>E-signature images</legend>
+        <p class="hint">Off prints a blank line to sign by hand &mdash; which is what most
+        certificates need. Turn it on only if the office wants the scanned signature printed.</p>
+        <label class="rowlabel">
+          <button type="button" id="btnSigEnable" class="toggle off small" aria-pressed="false">Off</button>
+          <span>Print the signature images</span>
+        </label>
+        <label class="sigfield">Signatory 1
+          <span class="logorow">
+            <img id="sigPreview" alt="signature 1">
+            <button type="button" id="btnSigUpload" class="ghost small">Upload&hellip;</button>
+            <button type="button" id="btnSigClear" class="ghost small">Clear</button>
+            <input id="sigInput" type="file" accept="image/png,image/jpeg" hidden>
+          </span>
+        </label>
+        <label class="sigfield">Signatory 2
+          <span class="logorow">
+            <img id="sig2Preview" alt="signature 2">
+            <button type="button" id="btnSig2Upload" class="ghost small">Upload&hellip;</button>
+            <button type="button" id="btnSig2Clear" class="ghost small">Clear</button>
+            <input id="sig2Input" type="file" accept="image/png,image/jpeg" hidden>
+          </span>
+        </label>
+      </fieldset>
+    </div>
+    <div class="actions">
+      <button type="button" id="btnResetSettings" class="ghost">Reset to defaults</button>
+      <button type="button" id="btnBackup" class="ghost" title="Save settings, logos and the certificate details to a file">&#11015; Backup&hellip;</button>
+      <button type="button" id="btnRestore" class="ghost" title="Load a backup file made on another computer">&#11014; Restore&hellip;</button>
+      <input id="restoreInput" type="file" accept=".json,application/json" hidden>
+      <span class="spacer"></span>
+      <button value="cancel" class="ghost">Cancel</button>
+      <button value="save" id="btnSaveSettings">Save</button>
+    </div>
+    <p class="credit">Made by James Allen M. Josue with Claude</p>
+  </form>
+</dialog>
+
+<script src="assets.js"></script>
+<script src="core.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script src="lib/pdf-lib.min.js"></script>
+<script src="lib/fontkit.umd.min.js"></script>
+<script src="lib/cinzel-font.js"></script>
+<script src="lib/cinzel-bold-font.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

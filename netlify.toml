@@ -1,0 +1,18 @@
+# Optional. The app is built to run offline from file://; this is only here in
+# case the office ever wants it hosted the way the ID generator is.
+# build-dist.js copies the runtime files into dist/ and Netlify publishes that.
+[build]
+  command = "node tools/build-dist.js"
+  publish = "dist"
+
+[build.environment]
+  # Both npm packages are dev-only tools (asset rebuilding, PDF rasterization
+  # for tests) and are never needed to build or run the site.
+  NODE_ENV = "production"
+
+# Long-cache the pinned libraries (their names never change); keep the app
+# files revalidated so updates show up immediately.
+[[headers]]
+  for = "/lib/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

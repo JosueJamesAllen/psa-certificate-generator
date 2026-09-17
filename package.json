@@ -1,0 +1,9 @@
+{
+  "name": "psa-certificate-generator",
+  "private": true,
+  "description": "Offline batch certificate generator for PSA Marinduque",
+  "devDependencies": {
+    "jimp": "^0.22.12",
+    "mupdf": "^1.28.0"
+  }
+}
