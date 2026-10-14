@@ -48,7 +48,9 @@ main {
   padding: 14px 16px;
   margin-bottom: 12px;
 }
-.step h2 { margin: 0 0 10px; font-size: 15px; }
+.step h2 { margin: 0 0 10px; font-size: 15px; display: flex; align-items: center; }
+/* a quiet action parked at the right of a step heading */
+.step h2 button.stephead { margin-left: auto; font-weight: normal; }
 .step h2 .n {
   display: inline-flex;
   align-items: center;
@@ -131,8 +133,28 @@ table.roster th, table.roster td {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* checkbox | page/sheet | name | role | flags */
 table.roster th:first-child, table.roster td:first-child { width: 30px; padding-right: 0; }
-table.roster th:nth-child(2), table.roster td:nth-child(2) { width: 54%; }
+table.roster th.sheetno, table.roster td.sheetno {
+  width: 48px;          /* enough for the word "Sheet" without clipping */
+  padding-left: 2px;
+  padding-right: 4px;
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+/* With no venue/date columns the name gets the lion's share. When those appear
+   the four text columns are weighted rather than split evenly - the name is how
+   you find the row, so it keeps the most room and the rest ellipsize (hover for
+   the full text, and a cell being edited wraps to show all of it). */
+table.roster:not(.extra) th:nth-child(3),
+table.roster:not(.extra) td:nth-child(3) { width: 50%; }
+/* All four are given a share so the browser scales them together against what
+   the fixed columns leave; specifying only some makes the rest collapse. */
+table.roster.extra th:nth-child(3), table.roster.extra td:nth-child(3) { width: 40%; }
+table.roster.extra th:nth-child(4), table.roster.extra td:nth-child(4) { width: 18%; }
+table.roster.extra th:nth-child(5), table.roster.extra td:nth-child(5) { width: 21%; }
+table.roster.extra th:nth-child(6), table.roster.extra td:nth-child(6) { width: 21%; }
 table.roster th:last-child, table.roster td:last-child { width: 52px; padding-left: 0; }
 table.roster th { position: sticky; top: 0; background: var(--bg); }
 table.roster tr:last-child td { border-bottom: 0; }
@@ -408,6 +430,15 @@ button.toggle.off:hover:not(:disabled) { background: #e4e8f2; color: var(--text)
 
 #status.error { color: #b3261e; }
 #status.ok { color: #1b7f3b; }
+
+/* a standing note about the batch - not an error, just worth seeing before you print */
+.warnnote {
+  background: #fff6df;
+  border: 1px solid #f0dfae;
+  border-radius: 7px;
+  padding: 7px 10px;
+  color: #7a5c00;
+}
 
 /* The status line sits at the bottom of step 3, out of sight when you are
    working in step 1 - so anything that went wrong is repeated up here. */

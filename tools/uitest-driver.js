@@ -24,10 +24,12 @@
     el.value = val;
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }
-  function addPerson(name, role) {
+  function addPerson(name, role, venue, when) {
     var f = document.getElementById('personForm');
     f.name.value = name;
     f.role.value = role || '';
+    f.venue.value = venue || '';
+    f.when.value = when || '';
     var d = document.getElementById('personDialog');
     d.returnValue = 'add';
     d.dispatchEvent(new Event('close'));
@@ -87,7 +89,7 @@
   }
   function names() {
     return Array.prototype.map.call(document.getElementById('rosterTable').rows, function (r, i) {
-      return i ? r.cells[1].textContent : null;
+      return i ? r.cells[2].textContent : null;
     }).filter(Boolean).join('/');
   }
   function clearFile(next) {
@@ -150,7 +152,15 @@
     set('dateFrom', '2026-09-15');
     set('dateTo', '2026-09-17');
     set('location', 'PSA PSO Marinduque Training Room,\n2nd Floor, JRT 2 Building, Tampus, Boac, Marinduque');
+    set('closing', 'Your participation contributed greatly to the **success** of this activity.');
     set('givenDate', '2026-09-17');
+    var savedBatch = JSON.parse(localStorage.getItem('psa-cert-batch') || '{}');
+    say('closing saved: ' + JSON.stringify((savedBatch.closing || '').slice(0, 34))
+      + ' | showClosing=' + savedBatch.showClosing);
+    document.getElementById('btnEyeClosing').click();
+    say('closing eye off -> showClosing='
+      + JSON.parse(localStorage.getItem('psa-cert-batch')).showClosing);
+    document.getElementById('btnEyeClosing').click();
     // The title dropdown must show every preset even though the box already
     // holds a full title - the old <datalist> filtered itself down to one.
     var tIn = document.getElementById('certTitle');
@@ -226,7 +236,7 @@
   // and clearing the list.
   function rosterChecks(done) {
     var t = document.getElementById('rosterTable');
-    var cell = t.rows[1].cells[1];
+    var cell = t.rows[1].cells[2];
     cell.focus();
     cell.textContent = 'Zenaida  Q.\nAbueg';   // messy paste: two spaces and a line break
     cell.dispatchEvent(new Event('input', { bubbles: true }));
@@ -235,7 +245,7 @@
       say('roster count: ' + document.getElementById('rosterCount').textContent);
 
       // a blank name must raise the flag without a rebuild stealing the caret
-      var c2 = document.getElementById('rosterTable').rows[2].cells[1];
+      var c2 = document.getElementById("rosterTable").rows[2].cells[2];
       c2.focus();
       c2.textContent = '';
       c2.dispatchEvent(new Event('input', { bubbles: true }));
@@ -252,10 +262,47 @@
       say('A-Z off: ' + names());
 
       say('stored for next time: ' + JSON.stringify(readStored().map(function (p) { return p.name; })));
+      window.confirm = function () { return true; };
+
+      // Which sheet each person prints on. Two A5s share one sheet, and a row
+      // that is not printing is not numbered at all.
+      say('A5 2-up: head=' + sheetHead() + ' numbers=' + sheetNumbers());
+      var firstBox = document.getElementById('rosterTable').rows[1].cells[0]
+        .querySelector('input');
+      firstBox.checked = false;
+      firstBox.dispatchEvent(new Event('change'));
+      say('first person unticked: ' + sheetNumbers()
+        + ' | count=' + document.getElementById('rosterCount').textContent);
+      firstBox.checked = true;
+      firstBox.dispatchEvent(new Event('change'));
+      document.querySelector('#sizeMode .seg[data-size=a4]').click();
+      say('switched to A4: head=' + sheetHead() + ' numbers=' + sheetNumbers());
+
+      // "New event" empties this training's boxes and leaves the setup alone
+      document.getElementById('btnNewEvent').click();
+      say('after New event: event=' + JSON.stringify(document.getElementById('event').value)
+        + ' hours=' + JSON.stringify(document.getElementById('hours').value)
+        + ' venue=' + JSON.stringify(document.getElementById('location').value)
+        + ' dates=' + JSON.stringify(document.getElementById('dateFrom').value)
+        + ' | kept: title=' + JSON.stringify(document.getElementById('certTitle').value)
+        + ' given=' + JSON.stringify(document.getElementById('givenDate').value)
+        + ' logo=' + JSON.stringify(document.querySelector('.logoslot select').value));
+      var note = document.getElementById('readyNote');
+      say('empty-title note: shown=' + !note.hidden
+        + ' ' + JSON.stringify(note.textContent.slice(0, 42)));
+      set('event', 'Orientation on the 2026 Census of Population');
+      say('note after typing a title: shown=' + !document.getElementById('readyNote').hidden);
+
+      // A per-person venue/date only earns a column when somebody has one.
+      var t2 = document.getElementById('rosterTable');
+      say('extra columns before: ' + headers() + ' | class=' + JSON.stringify(t2.className));
+      addPerson('Elena V. Pastrana', '', 'Municipal Hall, Santa Cruz', 'on 22 September 2026');
+      say('extra columns after:  ' + headers()
+        + ' | class=' + JSON.stringify(document.getElementById('rosterTable').className));
+
       say('download would be called: ' + fileNameProbe());
 
       // clearing the list must also take the preview and Download down with it
-      window.confirm = function () { return true; };
       document.getElementById('btnClearList').click();
       setTimeout(function () {
         say('after clear: rows=' + (document.getElementById('rosterTable').rows.length - 1)
@@ -266,6 +313,22 @@
         done();
       }, 900);
     }, 100);
+  }
+  // Which sheet each row says it prints on, in roster order.
+  function sheetNumbers() {
+    return Array.prototype.map.call(document.getElementById('rosterTable').rows, function (r, i) {
+      return i ? r.cells[1].textContent : null;
+    }).filter(function (v) { return v !== null; }).join(',');
+  }
+  function headers() {
+    var r = document.getElementById('rosterTable').rows[0];
+    return Array.prototype.map.call(r.cells, function (c) {
+      return c.textContent || '_';
+    }).join('|');
+  }
+  function sheetHead() {
+    var h = document.getElementById('rosterSheetHead');
+    return h ? h.textContent : '(none)';
   }
   function readStored() {
     try { return JSON.parse(localStorage.getItem('psa-cert-people')) || []; } catch (e) { return []; }

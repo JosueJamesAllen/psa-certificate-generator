@@ -54,6 +54,7 @@
     event: { size: 0.0255, gap: 0.020, font: 'serif', lead: 1.32 },
     detail: { size: 0.0210, gap: 0.028, font: 'serif', lead: 1.32 },
     location: { size: 0.0210, gap: 0.026, font: 'serif', lead: 1.32 },
+    closing: { size: 0.0210, gap: 0.026, font: 'serif', lead: 1.32 },
     given: { size: 0.0210, gap: 0.030, font: 'serif' },
 
     sigGap: 0.058,     // gap above the signature block
@@ -86,12 +87,14 @@
     dateFrom: '',
     dateTo: '',
     location: '',
+    closing: '',            // free paragraph between the venue and the date
     givenDate: '',
     showPreamble: true,
     showPresented: true,
     showForLine: true,
     showDetail: true,
     showLocation: true,
+    showClosing: true,
     showGiven: true,
   };
 
@@ -127,14 +130,22 @@
     'Certificate of Training': 'for successfully undergoing the',
   };
 
+  // Per-person columns. Venue and date/time are overrides: a blank cell falls
+  // back to the batch, so one sheet covers a training repeated in three
+  // municipalities on different days without repeating the venue on every row.
   var FIELDS = [
     { key: 'name', label: 'Full Name' },
     { key: 'role', label: 'Role (optional)' },
+    { key: 'venue', label: 'Venue (optional)' },
+    { key: 'when', label: 'Date / time (optional)' },
   ];
 
   var AUTO_RULES = {
+    venue: [/venue|location|place|hall|site/i, null],
+    when: [/date|time|schedule|when|session/i, null],
     role: [/role|position|designation|capacity|remark/i, null],
-    name: [/name|participant|attendee|employee/i, /role|position|event|venue/i],
+    name: [/name|participant|attendee|employee/i,
+      /role|position|event|venue|location|date|time|place|schedule/i],
   };
 
   // Which row holds the column headings.
@@ -208,7 +219,9 @@
 
   function autoMap(headers) {
     var map = {}, used = {};
-    ['role', 'name'].forEach(function (key) {
+    // most specific first - whichever column is left for "name" must not be one
+    // the others have already claimed
+    ['venue', 'when', 'role', 'name'].forEach(function (key) {
       var rule = AUTO_RULES[key];
       for (var i = 0; i < headers.length; i++) {
         var h = String(headers[i] || '');
@@ -366,6 +379,19 @@
     F.displayName = trajan ? (cinzelBold || cinzel) : F.serifBold;  // recipient name
     F.sigName = trajan ? (cinzelBold || cinzel) : F.serifBold;
 
+    // Each block draws in a regular/bold pair so **markup** can switch weight
+    // mid-line. The display faces are already the heavy ones - Times bold, or
+    // Cinzel which has no heavier weight here - so bold inside the title or the
+    // name simply draws the same face, which is the honest result rather than a
+    // fake emboldening.
+    var PAIRS = {
+      serif: { regular: F.serif, bold: F.serifBold },
+      serifItalic: { regular: F.serifItalic, bold: F.serifBold },
+      display: { regular: F.display, bold: F.display },
+      displayName: { regular: F.displayName, bold: F.displayName },
+      sigName: { regular: F.sigName, bold: F.sigName },
+    };
+
     async function embedImage(bytes) {
       if (!bytes || !bytes.length) return null;
       if (bytes[0] === 0xff && bytes[1] === 0xd8) return doc.embedJpg(bytes);
@@ -417,6 +443,101 @@
       return out;
     }
 
+    // -------------------------------------------------------------------------
+    // Bold inside a line.
+    //
+    // **Double asterisks** mark bold, the convention people already know from
+    // chat apps. It has to be inline rather than a switch on the whole box,
+    // because what the office wants to emphasise is usually part of a line -
+    // "for 24 hours of **foundational** training". An unclosed ** is left alone
+    // and prints as typed.
+    //
+    // A bold word is a different font, so it is also a different width, which
+    // means wrapping cannot be done on a plain string any more: text is
+    // tokenised into words that each carry their weight, and a line is a list
+    // of runs rather than a string.
+    // -------------------------------------------------------------------------
+    var BOLD_RE = /\*\*([\s\S]+?)\*\*/g;
+
+    function stripBold(str) {
+      return String(str == null ? '' : str).replace(BOLD_RE, '$1');
+    }
+
+    // 'a **b** c' -> [{t:'a ',b:false},{t:'b',b:true},{t:' c',b:false}]
+    function parseBold(str) {
+      var s = String(str == null ? '' : str);
+      var out = [], last = 0, m;
+      BOLD_RE.lastIndex = 0;
+      while ((m = BOLD_RE.exec(s))) {
+        if (m.index > last) out.push({ t: s.slice(last, m.index), b: false });
+        out.push({ t: m[1], b: true });
+        last = BOLD_RE.lastIndex;
+      }
+      if (last < s.length) out.push({ t: s.slice(last), b: false });
+      return out;
+    }
+
+    // -> [{ w: 'word', b: bool } | { br: true }], explicit newlines preserved
+    function boldTokens(str) {
+      var toks = [];
+      parseBold(str).forEach(function (run) {
+        run.t.split(/(\r?\n)/).forEach(function (chunk) {
+          if (/^\r?\n$/.test(chunk)) { toks.push({ br: true }); return; }
+          chunk.split(/[ \t]+/).forEach(function (w) {
+            if (w) toks.push({ w: w, b: run.b });
+          });
+        });
+      });
+      return toks;
+    }
+
+    // Words of the same weight are merged back into one run, and every run is
+    // then measured as the exact string it will be drawn as.
+    //
+    // Measuring word by word and adding the pieces up is NOT the same number:
+    // pdf-lib's standard fonts carry AFM kerning pairs and applies them across
+    // a whole string, so a per-word sum comes out a fraction wide - 0.22 pt on
+    // one venue line here. That is enough to shift the centring by a visible
+    // sub-pixel and to wrap a hair early. Measure what you draw.
+    function buildLine(toks, pair, size) {
+      var runs = [];
+      toks.forEach(function (tk) {
+        var prev = runs[runs.length - 1];
+        if (prev && prev.b === tk.b) prev.t += ' ' + tk.w;
+        else runs.push({ t: tk.w, b: tk.b });
+      });
+      var w = 0;
+      runs.forEach(function (r, ri) {
+        var font = (r.b && pair.bold) || pair.regular;
+        // the leading space belongs to this run, exactly as the drawing does it
+        r.w = font.widthOfTextAtSize(ri ? ' ' + r.t : r.t, size);
+        w += r.w;
+      });
+      return { runs: runs, w: w };
+    }
+
+    // Lines of runs: [{ runs: [{ t, b, w }], w }].
+    function wrapBold(str, pair, size, maxW) {
+      var lines = [], cur = [];
+      function flush() { lines.push(buildLine(cur, pair, size)); cur = []; }
+
+      boldTokens(str).forEach(function (tk) {
+        if (tk.br) { flush(); return; }
+        // the first word of a line always goes on it, however wide it is
+        if (cur.length && buildLine(cur.concat([tk]), pair, size).w > maxW) flush();
+        cur.push(tk);
+      });
+      if (cur.length) flush();
+      if (!lines.length) lines.push({ runs: [], w: 0 });
+      return lines;
+    }
+
+    // What the text would measure set on a single line - used by the blocks
+    // that shrink to fit before they are allowed to wrap.
+    function boldLineWidth(str, pair, size) {
+      return buildLine(boldTokens(str).filter(function (tk) { return !tk.br; }), pair, size).w;
+    }
+
     function runsWidth(runs, font, size) {
       var w = 0;
       runs.forEach(function (r) { w += font.widthOfTextAtSize(r.t, r.sup ? size * 0.62 : size); });
@@ -435,7 +556,7 @@
       function push(spec, text, extra) {
         if (text == null || text === '') return;
         var size = spec.size * U * scale;
-        var font = F[spec.font] || F.serif;
+        var pair = PAIRS[spec.font] || PAIRS.serif;
         var maxW = (extra && extra.maxW) || TEXTW;
         // The title and the name look wrong broken across two lines, so they
         // shrink to fit first and only wrap once they hit fitFloor. This also
@@ -443,9 +564,9 @@
         // enough to wrap a title that fits comfortably in Times.
         if (spec.fit && String(text).indexOf('\n') < 0) {
           var floor = size * (spec.fitFloor || 0.70);
-          while (size > floor && font.widthOfTextAtSize(String(text), size) > maxW) size -= 0.3;
+          while (size > floor && boldLineWidth(text, pair, size) > maxW) size -= 0.3;
         }
-        var lines = wrapText(text, font, size, maxW);
+        var lines = wrapBold(text, pair, size, maxW);
         // Wrapping cannot break a single word that is wider than the column -
         // a long hyphenless venue or event token used to run out from under the
         // text column and across the corner artwork - so shrink until it fits.
@@ -455,14 +576,14 @@
         for (var pass = 0; pass < 4 && size > sizeFloor; pass++) {
           var widest = 0;
           for (var li = 0; li < lines.length; li++) {
-            widest = Math.max(widest, font.widthOfTextAtSize(lines[li], size));
+            widest = Math.max(widest, lines[li].w);
           }
           if (widest <= maxW) break;
           size = Math.max(sizeFloor, size * (maxW / widest) * 0.98);
-          lines = wrapText(text, font, size, maxW);
+          lines = wrapBold(text, pair, size, maxW);
         }
         var o = Object.assign({
-          kind: 'text', size: size, font: font, lead: spec.lead || 1.15,
+          kind: 'text', size: size, pair: pair, lead: spec.lead || 1.15,
           gap: spec.gap * U * scale, color: BLACK,
         }, extra || {});
         o.size = size;
@@ -480,16 +601,25 @@
       if (batch.showForLine) push(LAYOUT.forLine, role || batch.forLine);
       push(LAYOUT.event, batch.event);
 
+      // A person's own venue and date/time override the batch's, so one run can
+      // cover the same training held in several places on several days. Blank
+      // cells - the normal case - fall through to the batch.
+      var pVenue = String((person && person.venue) || '').trim();
+      var pWhen = String((person && person.when) || '').trim();
+
       if (batch.showDetail) {
         var detail = [
           hoursLine(batch.hours, batch.trainingType),
-          formatDateRange(batch.dateFrom, batch.dateTo),
+          // the hours stay the batch's; only the when is per person
+          pWhen || formatDateRange(batch.dateFrom, batch.dateTo),
         ].filter(Boolean).join('\n');
         push(LAYOUT.detail, detail);
       }
-      if (batch.showLocation && String(batch.location || '').trim()) {
-        push(LAYOUT.location, 'at ' + String(batch.location).trim());
+      var venue = pVenue || String(batch.location || '').trim();
+      if (batch.showLocation && venue) {
+        push(LAYOUT.location, 'at ' + venue);
       }
+      if (batch.showClosing) push(LAYOUT.closing, batch.closing);
       if (batch.showGiven) {
         var runs = givenRuns(batch.givenDate);
         if (runs) {
@@ -657,12 +787,15 @@
         if (i) cursor += it.gap;
         if (it.kind === 'text') {
           it.lines.forEach(function (line, k) {
-            if (!line) return;
-            var w = it.font.widthOfTextAtSize(line, it.size);
-            page.drawText(line, {
-              x: cx - w / 2,
-              y: y(cursor + it.size * 0.80 + k * it.size * it.lead),
-              size: it.size, font: it.font, color: it.color,
+            if (!line || !line.runs.length) return;
+            // centred as a whole, then each run drawn in its own weight
+            var x = cx - line.w / 2;
+            var ly = y(cursor + it.size * 0.80 + k * it.size * it.lead);
+            line.runs.forEach(function (r, ri) {
+              var font = (r.b && it.pair.bold) || it.pair.regular;
+              page.drawText(ri ? ' ' + r.t : r.t,
+                { x: x, y: ly, size: it.size, font: font, color: it.color });
+              x += r.w;   // measured from this exact string, in buildLine
             });
           });
         } else if (it.kind === 'runs') {

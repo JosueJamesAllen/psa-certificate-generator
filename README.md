@@ -45,6 +45,12 @@ you don't reprint. **A → Z** prints them in alphabetical order, and **Clear
 list** takes everyone off and starts again. People you typed in by hand are
 still there tomorrow; the app remembers them on this computer.
 
+The **Page** column tells you where each person lands in the PDF, so if one
+certificate comes out of the printer badly you can reprint just that page
+instead of the whole batch. (On the 2-per-A4 setting it says **Sheet**, because
+two people share one.) A row that isn't ticked shows a dot — it isn't printing,
+so it doesn't take a page.
+
 **The Excel only needs one column: `Full Name`.** There's an optional second
 column, `Role`, explained further down.
 
@@ -65,10 +71,24 @@ that line will read on the certificate:
 | Hours + type of training | *for 24 hours of foundational training* |
 | Held on — From / To | *from 15 to 17 September 2026* |
 | Venue / location | *at PSA PSO Marinduque Training Room, …* |
+| Closing message | a sentence or two, just above the date |
 | Date issued | *Given this 17ᵗʰ day of September 2026.* |
+
+**To print words in bold**, put two asterisks around them:
+`Capacity Building on **CBMS**` prints *CBMS* in bold. It works in the event
+title, the venue, the closing message and the small wording lines.
 
 The dates tidy themselves up: one day becomes "on 17 September 2026", and a
 range crossing a month becomes "from 30 September to 2 October 2026".
+
+When the training is over and the next one comes along, **New event** (top right
+of this step) empties these boxes and sets the date issued to today. Everything
+that doesn't change — the certificate title, the wording, the design, your logos
+and the signatories — stays put. It doesn't touch the list of people; that's
+what **Clear list** in step 1 is for.
+
+If you forget to fill in the event title, a yellow note appears above the
+status line in step 3 before you print, rather than after.
 
 The **Certificate title** box has a drop-down of the usual ones
 (Participation, Appreciation, Recognition, Completion, Attendance, Training),
@@ -118,6 +138,31 @@ So a sheet like this:
 
 gives Richard the normal participant wording, and gives Juan and Benedict
 "as Resource Speaker in the" / "as Facilitator in the" — all from one run.
+
+---
+
+## Venue and Date / time columns — one training, several places
+
+Ran the same training in three municipalities on three different days? Add a
+**Venue** and a **Date / time** column and fill them in only for the people
+whose details differ:
+
+| Full Name | Role | Venue | Date / time |
+|---|---|---|---|
+| Richard B. Calub | | | |
+| Elena V. Pastrana | | Municipal Hall, Santa Cruz, Marinduque | on 22 September 2026, 8:00 AM to 5:00 PM |
+| Rodel M. Ignacio | | Gasan Municipal Gymnasium | on 24 September 2026 |
+
+Richard gets the venue and dates you typed in step 2. Elena and Rodel get their
+own. **A blank cell always falls back to step 2**, so you only fill in the
+exceptions. The *hours* line stays the same for everybody.
+
+Date / time is plain text — write it exactly as you want it printed, including
+the time of day if you need it. Those two columns show up in the list only when
+somebody actually has one, and you can edit them there like any other cell.
+
+You can also set them for one person at a time under **+ Add a person
+manually**.
 
 ---
 

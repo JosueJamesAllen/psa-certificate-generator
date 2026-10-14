@@ -342,9 +342,14 @@
     excelPeople = rows.slice(head.index + 1)
       .filter(function (r) { return r.some(function (v) { return String(v).trim(); }); })
       .map(function (r) {
+        function cell(key) {
+          return mapping[key] != null ? String(r[mapping[key]] == null ? '' : r[mapping[key]]).trim() : '';
+        }
         return {
-          name: mapping.name != null ? String(r[mapping.name] || '').trim() : '',
-          role: mapping.role != null ? String(r[mapping.role] || '').trim() : '',
+          name: cell('name'),
+          role: cell('role'),
+          venue: cell('venue'),   // blank falls back to the batch venue
+          when: cell('when'),     // blank falls back to the batch dates
           include: true,
         };
       });
@@ -417,6 +422,12 @@
       var k = String(r.person.name || '').trim().toLowerCase();
       if (k) seen[k] = (seen[k] || 0) + 1;
     });
+    // Which sheet each person lands on. The roster order is the print order, so
+    // this is simply a running count of everyone who is actually printing -
+    // which is why unticked and blank rows are skipped rather than numbered.
+    // Two A5s share a sheet, so it is a sheet number, not a row number.
+    var per = core.sheetPlan(batch).perSheet;
+    var printed = 0;
     rosterRows.forEach(function (r) {
       var name = String(r.person.name || '').trim();
       var warn = '';
@@ -425,12 +436,29 @@
       r.tr.classList.toggle('warn', !!warn);
       r.flag.hidden = !warn;
       r.flag.title = warn;
+
+      if (name && r.person.include) {
+        r.sheet.textContent = Math.floor(printed / per) + 1;
+        r.sheet.title = (per > 1 ? 'Shares sheet ' : 'Prints on page ')
+          + (Math.floor(printed / per) + 1);
+        printed++;
+      } else {
+        r.sheet.textContent = '·';
+        r.sheet.title = 'Not printing';
+      }
     });
     var total = rosterRows.length;
     var ticked = chosenPeople().length;
     $('rosterCount').textContent = total === ticked
       ? total + (total === 1 ? ' person' : ' people')
       : ticked + ' of ' + total + ' ticked';
+    var head = $('rosterSheetHead');
+    if (head) {
+      head.textContent = per > 1 ? 'Sheet' : 'Page';
+      head.title = per > 1
+        ? 'Which sheet of paper this certificate is on — two per sheet'
+        : 'Which page of the PDF this certificate is on';
+    }
   }
 
   // A cell you can correct in place. Names arrive misspelled, and a misspelled
@@ -471,10 +499,21 @@
     t.innerHTML = '';
     if (!list.length) { updateGenerateState(); return; }
 
+    // Venue and date/time only earn a column when somebody actually has one.
+    // Most batches use the step 2 values for everyone, and two more columns in
+    // a 470 px panel would squeeze the names for nothing.
+    var extra = ['venue', 'when'].filter(function (k) {
+      return list.some(function (p) { return String(p[k] || '').trim(); });
+    });
+    t.classList.toggle('extra', extra.length > 0);
+    var EXTRA_LABEL = { venue: 'Venue', when: 'Date / time' };
+
     var head = document.createElement('tr');
-    ['', 'Name', 'Role', ''].forEach(function (h, i) {
+    [''].concat(['Page', 'Name', 'Role'], extra.map(function (k) { return EXTRA_LABEL[k]; }), [''])
+      .forEach(function (h, i) {
       var th = document.createElement('th');
-      if (i === 0) {
+      if (i === 1) { th.id = 'rosterSheetHead'; th.className = 'sheetno'; th.textContent = h; }
+      else if (i === 0) {
         var all = document.createElement('input');
         all.type = 'checkbox';
         all.checked = list.every(function (p) { return p.include; });
@@ -507,6 +546,10 @@
       };
       td0.appendChild(cb);
 
+      // filled in by refreshWarnings, which knows how many are actually printing
+      var tdSheet = document.createElement('td');
+      tdSheet.className = 'sheetno';
+
       var td3 = document.createElement('td');
       td3.className = 'flag';
       var flag = document.createElement('span');
@@ -532,10 +575,11 @@
         td3.appendChild(del);
       }
 
-      [td0, editableCell(p, 'name'), editableCell(p, 'role'), td3]
+      [td0, tdSheet, editableCell(p, 'name'), editableCell(p, 'role')]
+        .concat(extra.map(function (k) { return editableCell(p, k); }), [td3])
         .forEach(function (td) { tr.appendChild(td); });
       t.appendChild(tr);
-      rosterRows.push({ tr: tr, person: p, flag: flag });
+      rosterRows.push({ tr: tr, person: p, flag: flag, sheet: tdSheet });
     });
     refreshWarnings();
     updateGenerateState();
@@ -543,13 +587,14 @@
 
   // ---------- batch details <-> UI ----------
   var TEXT_FIELDS = ['certTitle', 'event', 'hours', 'trainingType', 'dateFrom', 'dateTo',
-    'location', 'givenDate', 'preamble', 'presentedTo', 'forLine'];
+    'location', 'closing', 'givenDate', 'preamble', 'presentedTo', 'forLine'];
   var EYES = [
     ['btnEyePreamble', 'showPreamble'],
     ['btnEyePresented', 'showPresented'],
     ['btnEyeForLine', 'showForLine'],
     ['btnEyeDetail', 'showDetail'],
     ['btnEyeLocation', 'showLocation'],
+    ['btnEyeClosing', 'showClosing'],
     ['btnEyeGiven', 'showGiven'],
   ];
 
@@ -618,6 +663,41 @@
         + ' mm paper. Most printers only hold A4 — pick “2 per A4 sheet” if yours does.';
     }
     $('sheetHint').textContent = hint;
+    // the sheet each person lands on changes with the size and the 2-up setting
+    refreshWarnings();
+  }
+
+  // The fields that belong to one training, as opposed to the fields that
+  // describe how this office's certificates look. "New event" empties the first
+  // group and leaves the second alone - the title, the wording, the design, the
+  // logos and the signatories are the same next time.
+  var EVENT_FIELDS = ['event', 'hours', 'dateFrom', 'dateTo', 'location'];
+
+  function newEvent() {
+    if (String(batch.event || '').trim() || String(batch.location || '').trim()) {
+      if (!confirm('Empty the event boxes for the next training?\n\n'
+        + 'The certificate title, the wording, the design, your logos and the '
+        + 'signatories all stay as they are. The list of people is not touched — '
+        + 'use "Clear list" in step 1 for that.')) return;
+    }
+    EVENT_FIELDS.forEach(function (k) { batch[k] = ''; });
+    batch.trainingType = core.DEFAULT_BATCH.trainingType;
+    batch.givenDate = todayISO();    // a new batch is nearly always issued today
+    saveBatch();
+    applyBatchToUI();
+    scheduleRegen();
+    $('event').focus();
+  }
+
+  // Generates a perfectly valid certificate with a gap where the training name
+  // should be, which is only ever noticed after it is printed.
+  function renderReadyNote() {
+    var note = $('readyNote');
+    var missing = !String(batch.event || '').trim() && chosenPeople().length > 0;
+    note.hidden = !missing;
+    note.textContent = missing
+      ? 'The event / training title in step 2 is still empty — the certificate will have a blank line there.'
+      : '';
   }
 
   function renderPreviews() {
@@ -632,6 +712,7 @@
     } else {
       $('givenPreview').textContent = 'Pick a date to print the “Given this…” line.';
     }
+    renderReadyNote();
   }
 
   // ---------- generating ----------
@@ -666,6 +747,7 @@
     // Don't paper over the reason the list is empty - an unreadable file leaves
     // no names behind, and the error explaining why is the useful message.
     if (!n && !statusIsError) setStatus('Add at least one name to generate certificates.');
+    renderReadyNote();
   }
 
   function scheduleRegen() {
@@ -777,12 +859,16 @@
   // ---------- excel template ----------
   function downloadTemplate() {
     ensureXlsx().then(function () {
+      // Venue and Date / time are optional overrides - a blank cell uses what
+      // step 2 says, which is what nearly every row wants.
       var ws = XLSX.utils.aoa_to_sheet([
-        ['Full Name', 'Role'],
-        ['Richard B. Calub', ''],
-        ['Juan Paolo Santos', 'as Resource Speaker in the'],
+        ['Full Name', 'Role', 'Venue', 'Date / time'],
+        ['Richard B. Calub', '', '', ''],
+        ['Juan Paolo Santos', 'as Resource Speaker in the', '', ''],
+        ['Ana Marie L. Reyes', '', 'Municipal Hall, Santa Cruz, Marinduque',
+          'on 22 September 2026, 8:00 AM to 5:00 PM'],
       ]);
-      ws['!cols'] = [{ wch: 34 }, { wch: 34 }];
+      ws['!cols'] = [{ wch: 34 }, { wch: 30 }, { wch: 34 }, { wch: 34 }];
       var wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Participants');
       XLSX.writeFile(wb, 'certificate-list-template.xlsx');
@@ -1044,11 +1130,20 @@
       var f = $('personForm');
       var name = f.name.value.trim();
       if (!name) return;
-      manualPeople.push({ name: name, role: f.role.value.trim(), include: true, manual: true });
+      manualPeople.push({
+        name: name,
+        role: f.role.value.trim(),
+        venue: f.venue.value.trim(),
+        when: f.when.value.trim(),
+        include: true,
+        manual: true,
+      });
       saveManual();
       renderRoster();
       scheduleRegen();
     });
+
+    $('btnNewEvent').onclick = newEvent;
 
     $('btnToday').onclick = function () {
       var el = $('givenDate');

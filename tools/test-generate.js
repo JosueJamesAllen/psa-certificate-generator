@@ -60,12 +60,30 @@ const cases = [
     sig2Enabled: true, sig2Name: 'LENI R. RIOFLORIDO',
     sig2Title: 'Regional Director', sig2Office: 'PSA RSSO MIMAROPA',
   }],
+  // **bold** inside a line, the closing paragraph, and a person carrying their
+  // own venue and date - page 2 should differ from page 1 in those two lines
+  // while keeping the batch's hours.
+  ['a4-bold-closing-overrides', {
+    event: 'Capacity Building on **CBMS** and Statistical Standards',
+    closing: 'Your participation contributed greatly to the success of this activity. '
+      + 'This certificate is issued upon the request of the **Provincial Statistical Office** '
+      + 'for whatever purpose it may serve.',
+  }, null, [
+    { name: 'Richard B. Calub' },
+    {
+      name: 'Ana Marie L. Reyes',
+      venue: 'Municipal Hall, Santa Cruz, Marinduque',
+      when: 'on 22 September 2026, 8:00 AM to 5:00 PM',
+    },
+    { name: 'Juan Paolo Santos', role: 'as **Resource Speaker** in the' },
+  ]],
 ];
 
-Promise.all(cases.map(([name, over, settings]) =>
+Promise.all(cases.map(([name, over, settings, who]) =>
   core.generatePdf(Object.assign({}, common, {
     batch: Object.assign({}, batch, over),
     settings: Object.assign({}, common.settings, settings || {}),
+    people: who || people,
   })).then(bytes => {
     fs.writeFileSync(path.join(out, name + '.pdf'), bytes);
     console.log(name + '.pdf', (bytes.length / 1024).toFixed(0) + ' KB');

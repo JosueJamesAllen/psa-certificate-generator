@@ -49,11 +49,14 @@
       <div id="rosterWrap" hidden>
         <table class="roster" id="rosterTable"></table>
       </div>
-      <p class="hint" id="rosterHint" hidden>Click a name or role to fix it.</p>
+      <p class="hint" id="rosterHint" hidden>Click any cell to fix it.</p>
     </div>
 
     <div class="step" id="step2">
-      <h2><span class="n">2</span> Certificate details</h2>
+      <h2><span class="n">2</span> Certificate details
+        <button id="btnNewEvent" class="ghost small stephead" type="button"
+                title="Empty the event boxes, ready for the next training">New event</button>
+      </h2>
 
       <div class="field">
         <label class="caption" for="certTitle">Certificate title</label>
@@ -71,6 +74,7 @@
       <label class="field">
         <span>Event / training title</span>
         <textarea id="event" class="linetext" rows="3" placeholder="e.g. Capacity Building on Statistical Survey Review and Clearance System"></textarea>
+        <p class="hint">Put <b>**two asterisks**</b> around any words to print them in <b>bold</b>.</p>
       </label>
 
       <div class="field">
@@ -105,7 +109,20 @@
           </button>
         </div>
         <textarea id="location" class="linetext" rows="2" placeholder="e.g. PSA PSO Marinduque Training Room,&#10;2nd Floor, JRT 2 Building, Tampus, Boac, Marinduque"></textarea>
-        <p class="hint">Printed as &ldquo;at &hellip;&rdquo;. Press Enter to force a line break.</p>
+        <p class="hint">Printed as &ldquo;at &hellip;&rdquo;. Press Enter to force a line break.
+        Anyone with their own <b>Venue</b> in the list uses that instead.</p>
+      </div>
+
+      <div class="field">
+        <div class="fieldhead">
+          <label class="caption" for="closing">Closing message</label>
+          <button id="btnEyeClosing" class="eye" type="button" aria-pressed="true" title="Show or hide the closing message">
+            <span class="eyeicon">&#128065;</span><span class="eyelabel">Shown</span>
+          </button>
+        </div>
+        <textarea id="closing" class="linetext" rows="3" placeholder="e.g. Your participation contributed greatly to the success of this activity. This certificate is issued upon request for whatever purpose it may serve."></textarea>
+        <p class="hint">A sentence or two, printed between the venue and the
+        &ldquo;Given this&hellip;&rdquo; line. <b>**Asterisks**</b> make words bold here too.</p>
       </div>
 
       <div class="field">
@@ -239,6 +256,7 @@
         <button id="btnDownload" type="button" disabled>&#11015; Download</button>
         <button id="btnPrint" type="button" class="ghost" disabled>&#128424; Print</button>
       </div>
+      <p id="readyNote" class="hint warnnote" hidden></p>
       <p id="status" class="hint"></p>
       <p class="hint">When printing, set Scale to <b>Actual size</b> or <b>100%</b> &mdash; &ldquo;fit to page&rdquo; shrinks the certificate.</p>
     </div>
@@ -262,6 +280,12 @@
     <label>Full Name <input name="name" autocomplete="off"></label>
     <label>Role <small>&mdash; optional, replaces the line above the event</small>
       <input name="role" autocomplete="off" placeholder="e.g. as Resource Speaker in the">
+    </label>
+    <label>Venue <small>&mdash; optional, only if theirs differs from step 2</small>
+      <input name="venue" autocomplete="off" placeholder="e.g. Municipal Hall, Santa Cruz, Marinduque">
+    </label>
+    <label>Date / time <small>&mdash; optional, only if theirs differs</small>
+      <input name="when" autocomplete="off" placeholder="e.g. on 22 September 2026, 8:00 AM to 5:00 PM">
     </label>
     <div class="actions">
       <span class="spacer"></span>

@@ -22,10 +22,17 @@ Started September 2026 from a scan of the office's existing Canva certificate
   office only stocks A4, so this is how an A5 certificate actually gets
   printed.
 - **Dynamic per batch:** certificate title, event/training title, hours, type
-  of training, date range, venue, date issued, and every small connector line.
-  **Dynamic per person:** name, plus an optional **Role** that replaces the
-  "for actively participating in the" line — so speakers, facilitators and
-  participants can come out of one run.
+  of training, date range, venue, a free **closing message**, date issued, and
+  every small connector line.
+  **Dynamic per person:** name, an optional **Role** that replaces the "for
+  actively participating in the" line, and optional **Venue** and **Date /
+  time** that override the batch's — so speakers, facilitators and participants,
+  and a training repeated in three municipalities on three days, can all come
+  out of one run. A blank cell falls back to the batch, which is the normal
+  case; the hours line always stays the batch's.
+- **`**double asterisks**` print bold**, inline, in any of the text boxes. It
+  has to be inline rather than a per-box switch because what gets emphasised is
+  usually part of a line.
 - The signature line prints **blank on purpose**; `settings.sigEnabled` is off
   by default. Unlike the ID generator there is no bundled official signature
   and therefore no password gate — there is nothing pre-loaded to protect.
@@ -110,6 +117,24 @@ cannot work here: A4 portrait and A5 landscape have opposite aspect ratios. So:
 - `givenRuns` returns the "Given this 17th day of…" line as *runs* so the
   ordinal suffix can be drawn smaller and raised, like the original.
 
+**Bold changes what a "line" is.** A bold word is a different font and so a
+different width, which means wrapping cannot work on a plain string any more.
+`parseBold` → `boldTokens` turns text into words that each carry their weight,
+`buildLine` groups same-weight neighbours back into runs, and `wrapBold` returns
+lines of runs. `PAIRS` gives each block a regular/bold font pair; the display
+faces (Times bold, Cinzel) have no heavier weight, so bold inside the title or
+the name honestly draws the same face rather than faking one.
+
+**Measure what you draw.** `buildLine` measures each run as the exact string it
+will be drawn as, including its leading space — *not* by adding up word widths.
+pdf-lib's standard fonts carry AFM kerning pairs and apply them across a whole
+string, so a per-word sum came out 0.22 pt wide on one venue line: enough to
+shift the centring by a visible sub-pixel and to wrap a hair early. The first
+cut of this did exactly that, and it showed up as 2 405 changed pixels against
+the baseline render with no visible difference — same ink bounds, moved
+centroid. If a refactor here ever "differs by a few hundred px", suspect the
+measurement, not the layout.
+
 ### The corner artwork
 
 Redrawn as **vector polygons**, not extracted raster — the original is a Canva
@@ -161,6 +186,19 @@ takes the caret with it. `batch.sortNames` (the A → Z button) is a batch
 property, not a view setting: `displayPeople` feeds both the table and
 `chosenPeople`, so what you see is the order the certificates print in.
 
+The roster's Page/Sheet column follows from that: `refreshWarnings` counts only
+the rows that are actually printing (ticked, with a name) and divides by
+`sheetPlan().perSheet`, so an unticked row shows a dot rather than consuming a
+number. The heading flips between "Page" and "Sheet" because two A5s share one
+sheet — which is also why `syncSheetField` calls `refreshWarnings`: changing the
+size or the 2-up setting renumbers everyone.
+
+`EVENT_FIELDS` + `newEvent()` draw the line between what belongs to one training
+(event, hours, dates, venue) and what describes how this office's certificates
+look (title, wording, design, logos, signatories). Only the first group is
+cleared, and `givenDate` goes to today rather than blank. It deliberately leaves
+the roster alone — "Clear list" owns that.
+
 ## Verify loop (do this after any layout/engine change)
 
 ```
@@ -195,8 +233,19 @@ preview pane is blank in screenshots. That is not a bug.
 
 ## Excel contract
 
-Headers `Full Name | Role`. Only the name matters; `autoMap` fuzzy-matches and
-falls back to column 1 for the name if nothing matches.
+Headers `Full Name | Role | Venue | Date / time`. Only the name matters; the
+rest are optional per-person overrides and `autoMap` fuzzy-matches them, falling
+back to column 1 for the name if nothing matches. `autoMap` runs most-specific
+first (`venue`, `when`, `role`, `name`) so the column left for the name is not
+one another field has already claimed, and the name rule excludes
+venue/date/time words outright.
+
+The roster only grows **Venue** and **Date / time** columns when somebody
+actually has one — two more columns in a 470 px panel would squeeze the names
+for nothing. When they do appear, all four text columns need an explicit `width`
+in `table.roster.extra`: giving some of them a percentage and leaving the others
+`auto` collapses the `auto` ones to a few pixels, because the percentages are of
+the whole table, not of what is left.
 
 **The heading row is searched for, not assumed to be row 1** (`findHeaderRow`).
 Assuming row 1 quietly ate a person: a sheet opening with a merged title like
